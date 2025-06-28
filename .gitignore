@@ -72,7 +72,7 @@ compile_commands.json
 
 # Core dumps
 core
-core.*
+core.*[!h]
 
 # OS generated files
 .DS_Store
