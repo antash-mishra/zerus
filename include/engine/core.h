@@ -53,10 +53,18 @@ typedef struct string_slice_t
     size_t       len;
 } string_slice_t;
 
+typedef enum
+{
+    INIT_OK,
+    VULKAN_INSTANCE_FAILED,
+} engine_error_t;
+
 // Engine subsystems state
 typedef struct zerus_engine_state_t
 {
-    bool initialized;
+    bool           initialized;
+    engine_error_t err;
+    VkInstance     instance;
 } zerus_engine_state_t;
 
 
@@ -85,7 +93,8 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine);
 #define zerus_core__ zerus_core__
 
 
-void _init_vulkan(string_slice_t extension_data)
+engine_error_t _init_vulkan(zerus_engine_state_t engine,
+                            string_slice_t       extension_data)
 {
     // create instance
     const VkApplicationInfo app_info = {
@@ -108,16 +117,17 @@ void _init_vulkan(string_slice_t extension_data)
             .enabledLayerCount       = 0,
             .ppEnabledLayerNames     = nullptr };
 
-    VkInstance instance;
-    VkResult result = vkCreateInstance(&instance_create_info, NULL, &instance);
+    VkResult result
+        = vkCreateInstance(&instance_create_info, NULL, &engine.instance);
     if (result)
     {
         printf("error creating vulkan instance");
-        return;
+        return VULKAN_INSTANCE_FAILED;
     }
 
+
     printf("Vulkan instance created...\n");
-    return;
+    return INIT_OK;
 }
 
 ZERUS_CORE_DEF
@@ -127,7 +137,12 @@ zerus_engine_state_t zerus_engine_init(string_slice_t extension_data)
 
     // Initialize subsystems
     printf("Initializing rendessrer... \n");
-    _init_vulkan(extension_data);
+    state.err = _init_vulkan(state, extension_data);
+    if (state.err)
+    {
+        printf("error in vulkan init %d", state.err);
+        return state;
+    }
 
     return state;
 }
@@ -150,6 +165,8 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine)
 
     if (engine->initialized)
     {
+        vkDestroyInstance(engine->instance, nullptr);
+
         engine->initialized = false;
     }
 }

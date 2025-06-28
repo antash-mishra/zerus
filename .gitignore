@@ -70,9 +70,7 @@ compile_commands.json
 # Valgrind
 *.valgrind
 
-# Core dumps
-core
-core.*[!h]
+
 
 # OS generated files
 .DS_Store
