@@ -1,0 +1,42 @@
+{
+    "C_Cpp.default.cStandard": "c23",
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+    "C_Cpp.default.intelliSenseMode": "gcc-x64",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "WebKit",
+    "C_Cpp.dimInactiveRegions": false,
+    "C_Cpp.enhancedColorization": "disabled",
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.formatOnType": true,
+    "clangd.inactiveRegions.useBackgroundHighlight":true,
+    "files.associations": {
+        "*.h": "c",
+        "*.c": "c"
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "always",
+      },
+    "clangd.arguments": [
+        "--compile-commands-dir=build",
+        "--clang-tidy",
+        "--completion-style=detailed",
+        "--header-insertion=iwyu",
+        "--pch-storage=memory"
+    ],
+    
+    "C_Cpp.default.defines": [
+        "ZERUS_CORE_IMPLEMENTATION",
+        "DEBUG",
+        "_GNU_SOURCE"
+    ],
+    
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureOnOpen": true,
+    "cmake.generator": "Unix Makefiles",
+    
+    "files.exclude": {
+        "build/": true,
+        "**/*.dSYM": true
+    }
+}

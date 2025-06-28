@@ -1,0 +1,104 @@
+# Build directories
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+.cache
+.idea
+
+# Compiled Object files
+*.o
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+zerus_engine
+test_engine
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# IDE files
+.vscode/ipch/
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+*.sln
+
+# Clang compile commands
+compile_commands.json
+
+# Address Sanitizer
+*.asan
+
+# Valgrind
+*.valgrind
+
+# Core dumps
+core
+core.*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*~
+*.bak
+*.backup
+*.swp
+*.swo
+*.tmp
+
+# Log files
+*.log
+
+# Asset files (game specific)
+assets/temp/
+assets/cache/
+
+# Documentation generated files
+docs/html/
+docs/latex/
+docs/doxygen/
