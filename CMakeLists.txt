@@ -77,6 +77,7 @@ include_directories(
 # Source files (header-only engine, only main.c needed)
 set(SOURCES
         "src/main.c"
+        include/engine/prelude.h
 )
 
 # Executable

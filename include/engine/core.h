@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <vulkan/vulkan_core.h>
+#include "prelude.h"
 
 
 // Engine version
@@ -47,16 +48,11 @@
 #endif
 #endif
 
-typedef struct string_slice_t
-{
-    const char** data;
-    size_t       len;
-} string_slice_t;
-
 typedef enum
 {
     INIT_OK,
     VULKAN_INSTANCE_FAILED,
+    VULKAN_VALIDATION_NOT_FOUND
 } engine_error_t;
 
 // Engine subsystems state
@@ -64,12 +60,15 @@ typedef struct zerus_engine_state_t
 {
     bool           initialized;
     engine_error_t err;
-    VkInstance     instance;
+
+    VkInstance               instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
 } zerus_engine_state_t;
 
 
 // Core engine functions
-ZERUS_CORE_DEF zerus_engine_state_t zerus_engine_init(string_slice_t);
+ZERUS_CORE_DEF zerus_engine_state_t zerus_engine_init(allocator*,
+                                                      string_array_t*);
 ZERUS_CORE_DEF void zerus_engine_update(zerus_engine_state_t* engine);
 ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine);
 
@@ -83,7 +82,6 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine);
 #ifdef ZERUS_CORE_IMPLEMENTATION
 
 #include <stdio.h>
-#include <string.h>
 
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
@@ -92,10 +90,115 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine);
 // Private namespace for internal functions
 #define zerus_core__ zerus_core__
 
+string_t required_validation_layer = MAKE_STR("VK_LAYER_KHRONOS_validation");
+string_t required_validation_extension
+    = MAKE_STR(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-engine_error_t _init_vulkan(zerus_engine_state_t engine,
-                            string_slice_t       extension_data)
+bool check_validation_support()
 {
+    uint32_t count;
+    vkEnumerateInstanceLayerProperties(&count, NULL);
+
+    VkLayerProperties layer_properties[256];
+    vkEnumerateInstanceLayerProperties(&count, layer_properties);
+
+    bool found = false;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        VkLayerProperties layer = layer_properties[i];
+
+        string_t layer_name
+            = { .chars = layer.layerName,
+                .len   = find_length_of_c_string(layer.layerName) };
+
+
+        if (string_equal(layer_name, required_validation_layer))
+        {
+            found = true;
+            break;
+        }
+    }
+
+    return found;
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT      message_severity,
+               VkDebugUtilsMessageTypeFlagsEXT             message_type,
+               const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
+               void*                                       p_user_data)
+{
+    (void) p_user_data;
+
+    printf("message severity %d \n", message_severity);
+    printf("message type: %d \n", message_type);
+    printf("validation layer: %s \n", p_callback_data->pMessage);
+    return VK_FALSE;
+}
+
+bool create_debug_utils_messenger(VkInstance                instance,
+                                  VkDebugUtilsMessengerEXT* debug_messenger)
+{
+    VkDebugUtilsMessengerCreateInfoEXT create_info = { 0 };
+    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+
+    create_info.messageSeverity
+        = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+
+    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                              | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                              | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+
+    create_info.pfnUserCallback = debug_callback;
+    create_info.pUserData       = NULL;
+
+    PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT
+        = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+            instance, "vkCreateDebugUtilsMessengerEXT");
+    if (pfnCreateDebugUtilsMessengerEXT == NULL)
+    {
+        printf("failed to register debug callback");
+        return false;
+    }
+
+    VkResult res = pfnCreateDebugUtilsMessengerEXT(
+        instance, &create_info, nullptr, debug_messenger);
+    if (res)
+    {
+        printf("failed to create debug messenger %d", res);
+        return false;
+    }
+
+    return true;
+}
+
+void destroy_debug_utils_messenger(VkInstance               instance,
+                                   VkDebugUtilsMessengerEXT debug_messenger)
+{
+    PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT
+        = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+            instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (pfnDestroyDebugUtilsMessengerEXT == NULL)
+    {
+        return;
+    }
+
+    pfnDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+}
+
+
+engine_error_t _init_vulkan(allocator*            alloc,
+                            zerus_engine_state_t* engine,
+                            string_array_t*       extension_data)
+{
+    if (!check_validation_support())
+    {
+        printf("validation support not found");
+        return VULKAN_VALIDATION_NOT_FOUND;
+    }
+
     // create instance
     const VkApplicationInfo app_info = {
         .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -108,36 +211,46 @@ engine_error_t _init_vulkan(zerus_engine_state_t engine,
         .apiVersion = VK_API_VERSION_1_4,
     };
 
+
+    string_array_push(alloc, extension_data, required_validation_extension);
+
     const VkInstanceCreateInfo instance_create_info
         = { .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext                   = NULL,
             .pApplicationInfo        = &app_info,
-            .enabledExtensionCount   = extension_data.len,
-            .ppEnabledExtensionNames = extension_data.data,
-            .enabledLayerCount       = 0,
-            .ppEnabledLayerNames     = nullptr };
+            .enabledExtensionCount   = extension_data->len,
+            .ppEnabledExtensionNames = string_array_to_cstrings(extension_data),
+            .enabledLayerCount       = 1,
+            .ppEnabledLayerNames     = (const char*[]) {
+                string_to_cstring(&required_validation_layer) } };
 
     VkResult result
-        = vkCreateInstance(&instance_create_info, NULL, &engine.instance);
+        = vkCreateInstance(&instance_create_info, NULL, &engine->instance);
     if (result)
     {
         printf("error creating vulkan instance");
         return VULKAN_INSTANCE_FAILED;
     }
 
+    if (!create_debug_utils_messenger(engine->instance,
+                                      &engine->debug_messenger))
+    {
+        return VULKAN_VALIDATION_NOT_FOUND;
+    }
 
     printf("Vulkan instance created...\n");
     return INIT_OK;
 }
 
 ZERUS_CORE_DEF
-zerus_engine_state_t zerus_engine_init(string_slice_t extension_data)
+zerus_engine_state_t zerus_engine_init(allocator*      alloc,
+                                       string_array_t* extension_data)
 {
     zerus_engine_state_t state = { .initialized = true };
 
     // Initialize subsystems
     printf("Initializing rendessrer... \n");
-    state.err = _init_vulkan(state, extension_data);
+    state.err = _init_vulkan(alloc, &state, extension_data);
     if (state.err)
     {
         printf("error in vulkan init %d", state.err);
@@ -165,6 +278,9 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine)
 
     if (engine->initialized)
     {
+        destroy_debug_utils_messenger(engine->instance,
+                                      engine->debug_messenger);
+
         vkDestroyInstance(engine->instance, nullptr);
 
         engine->initialized = false;

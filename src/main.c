@@ -18,15 +18,33 @@ GLFWwindow* make_window()
     return glfwCreateWindow(800, 600, "Zerus", NULL, NULL);
 }
 
-string_slice_t get_glfw_extensions()
+string_array_t* get_glfw_extensions(allocator* alloc)
 {
     uint32_t     count           = 0;
     const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&count);
 
-    return (string_slice_t) {
-        glfw_extensions,
-        count,
-    };
+    string_array_t* extensions = make_string_array(alloc, count + 1);
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        extensions->data[i] = make_from_c_string(glfw_extensions[i]);
+        extensions->len++;
+    }
+
+    return extensions;
+}
+
+// Standard library allocator wrappers
+static void* std_malloc(ptrdiff_t size, void* ctx)
+{
+    (void) ctx;
+    return malloc(size);
+}
+
+static void std_free(void* ptr, void* ctx)
+{
+    (void) ctx;
+    free(ptr);
 }
 
 int main(int argc, char* argv[])
@@ -37,9 +55,14 @@ int main(int argc, char* argv[])
     printf("Zerus Game Engine v1.0.0\n");
     printf("Initializing engine...\n");
 
+    allocator std_alloc = { std_malloc, std_free, NULL };
+
     glfwInit();
 
-    zerus_engine_state_t engine = zerus_engine_init(get_glfw_extensions());
+    string_array_t* extensions = get_glfw_extensions(&std_alloc);
+    zerus_engine_state_t engine = zerus_engine_init(&std_alloc, extensions);
+    std_alloc.free(extensions, std_alloc.ctx); // Free immediately after use
+    
     if (!engine.initialized)
     {
         fprintf(stderr, "Failed to initialize engine\n");
