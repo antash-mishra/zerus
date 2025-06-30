@@ -7,6 +7,8 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #endif  // PRELUDE_H
 
@@ -16,6 +18,11 @@ typedef struct
     void (*free)(void*, void* ctx);
     void* ctx;
 } allocator;
+
+typedef enum
+{
+    ALLOC_FAILED
+} prelude_err;
 
 typedef struct
 {
@@ -139,21 +146,21 @@ const char** string_array_to_cstrings(const string_array_t* arr)
     {
         return NULL;
     }
-    
+
     // Use a static buffer to avoid heap allocation for better performance
     // This assumes reasonable limits for typical use cases
     static const char* buffer[256];
-    
+
     if (arr->len > 256)
     {
-        return NULL; // Safety check
+        return NULL;  // Safety check
     }
-    
+
     for (size_t i = 0; i < arr->len; i++)
     {
         buffer[i] = arr->data[i].chars;
     }
-    
+
     return buffer;
 }
 
@@ -161,4 +168,30 @@ const char** string_array_to_cstrings(const string_array_t* arr)
 const char* string_to_cstring(const string_t* str)
 {
     return str ? str->chars : NULL;
+}
+
+typedef struct
+{
+    size_t len;
+    size_t cap;
+    void*  data[];
+} list_t;
+
+list_t* make_list(allocator* alloc, size_t len)
+{
+    // allocate twice the capacity, so if it grows
+    // we dont have to re-allocate right away
+    size_t buffer = 2;
+
+    size_t  size     = sizeof(list_t) + len * sizeof(list_t) * buffer;
+    list_t* new_list = alloc->malloc(size, alloc->ctx);
+    if (!new_list)
+    {
+        return nullptr;
+    }
+
+    new_list->len = len;
+    new_list->cap = len * 2;
+
+    return new_list;
 }

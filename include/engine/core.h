@@ -94,6 +94,7 @@ string_t required_validation_layer = MAKE_STR("VK_LAYER_KHRONOS_validation");
 string_t required_validation_extension
     = MAKE_STR(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
+
 bool check_validation_support()
 {
     uint32_t count;
@@ -143,8 +144,7 @@ bool create_debug_utils_messenger(VkInstance                instance,
     create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
     create_info.messageSeverity
-        = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-          | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+        = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
           | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
     create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
@@ -237,6 +237,45 @@ engine_error_t _init_vulkan(allocator*            alloc,
     {
         return VULKAN_VALIDATION_NOT_FOUND;
     }
+
+    // create device
+    uint32_t device_count = 0;
+    vkEnumeratePhysicalDevices(engine->instance, &device_count, nullptr);
+
+    // VkPhysicalDevice* physical_devices
+    //     = alloc->malloc(device_count * sizeof(VkPhysicalDevice), alloc->ctx);
+
+
+    list_t* physical_devices = make_list(alloc, device_count);
+
+    if (!physical_devices)
+    {
+        return VULKAN_INSTANCE_FAILED;
+    }
+
+    vkEnumeratePhysicalDevices(engine->instance,
+                               &device_count,
+                               (VkPhysicalDevice*) &physical_devices->data);
+
+    for (uint32_t i = 0; i < device_count; i++)
+    {
+        VkPhysicalDevice* device = physical_devices->data[i];
+
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(*device, &props);
+
+        VkPhysicalDeviceFeatures features;
+        vkGetPhysicalDeviceFeatures(*device, &features);
+
+        printf("device %d, name %s, type: %d %d\n",
+               props.deviceID,
+               props.deviceName,
+               props.deviceType,
+               features.geometryShader);
+    }
+
+    // Clean up physical devices array
+    alloc->free(physical_devices, alloc->ctx);
 
     printf("Vulkan instance created...\n");
     return INIT_OK;
