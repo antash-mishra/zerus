@@ -78,6 +78,8 @@ include_directories(
 set(SOURCES
         "src/main.c"
         include/engine/prelude.h
+        include/engine/device.h
+        include/engine/surface.h
 )
 
 # Executable

@@ -31,7 +31,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <vulkan/vulkan_core.h>
+
 #include "prelude.h"
+#include "device.h"
+#include "surface.h"
 
 
 // Engine version
@@ -52,7 +55,8 @@ typedef enum
 {
     INIT_OK,
     VULKAN_INSTANCE_FAILED,
-    VULKAN_VALIDATION_NOT_FOUND
+    VULKAN_VALIDATION_NOT_FOUND,
+    VULKAN_SURFACE_FAILED
 } engine_error_t;
 
 // Engine subsystems state
@@ -63,15 +67,17 @@ typedef struct zerus_engine_state_t
 
     VkInstance               instance;
     VkDebugUtilsMessengerEXT debug_messenger;
+
+    device_info_t  device_info;
+    surface_info_t surface_info;
 } zerus_engine_state_t;
 
 
 // Core engine functions
-ZERUS_CORE_DEF zerus_engine_state_t zerus_engine_init(allocator*,
-                                                      string_array_t*);
-ZERUS_CORE_DEF void zerus_engine_update(zerus_engine_state_t* engine);
+ZERUS_CORE_DEF zerus_engine_state_t zerus_engine_init(allocator*);
+ZERUS_CORE_DEF bool zerus_engine_update(zerus_engine_state_t* engine);
 ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine);
-
+ZERUS_CORE_DEF void zerus_engine_start(zerus_engine_state_t* engine);
 
 #endif  // ZERUS_CORE_H
 
@@ -189,15 +195,16 @@ void destroy_debug_utils_messenger(VkInstance               instance,
 }
 
 
-engine_error_t _init_vulkan(allocator*            alloc,
-                            zerus_engine_state_t* engine,
-                            string_array_t*       extension_data)
+engine_error_t _init_vulkan(allocator* alloc, zerus_engine_state_t* engine)
 {
     if (!check_validation_support())
     {
         printf("validation support not found");
         return VULKAN_VALIDATION_NOT_FOUND;
     }
+
+    string_array_t* extensions = get_glfw_extensions(alloc);
+
 
     // create instance
     const VkApplicationInfo app_info = {
@@ -212,14 +219,14 @@ engine_error_t _init_vulkan(allocator*            alloc,
     };
 
 
-    string_array_push(alloc, extension_data, required_validation_extension);
+    string_array_push(alloc, extensions, required_validation_extension);
 
     const VkInstanceCreateInfo instance_create_info
         = { .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext                   = NULL,
             .pApplicationInfo        = &app_info,
-            .enabledExtensionCount   = extension_data->len,
-            .ppEnabledExtensionNames = string_array_to_cstrings(extension_data),
+            .enabledExtensionCount   = extensions->len,
+            .ppEnabledExtensionNames = string_array_to_cstrings(extensions),
             .enabledLayerCount       = 1,
             .ppEnabledLayerNames     = (const char*[]) {
                 string_to_cstring(&required_validation_layer) } };
@@ -238,58 +245,34 @@ engine_error_t _init_vulkan(allocator*            alloc,
         return VULKAN_VALIDATION_NOT_FOUND;
     }
 
-    // create device
-    uint32_t device_count = 0;
-    vkEnumeratePhysicalDevices(engine->instance, &device_count, nullptr);
-
-    // VkPhysicalDevice* physical_devices
-    //     = alloc->malloc(device_count * sizeof(VkPhysicalDevice), alloc->ctx);
-
-
-    list_t* physical_devices = make_list(alloc, device_count);
-
-    if (!physical_devices)
+    engine->device_info = pick_device(alloc, engine->instance);
+    if (engine->device_info.error)
     {
+        printf("error creating device %d \n", engine->device_info.error);
         return VULKAN_INSTANCE_FAILED;
     }
 
-    vkEnumeratePhysicalDevices(engine->instance,
-                               &device_count,
-                               (VkPhysicalDevice*) &physical_devices->data);
-
-    for (uint32_t i = 0; i < device_count; i++)
+    engine->surface_info = create_surface(engine->instance);
+    if (engine->surface_info.status)
     {
-        VkPhysicalDevice* device = physical_devices->data[i];
-
-        VkPhysicalDeviceProperties props;
-        vkGetPhysicalDeviceProperties(*device, &props);
-
-        VkPhysicalDeviceFeatures features;
-        vkGetPhysicalDeviceFeatures(*device, &features);
-
-        printf("device %d, name %s, type: %d %d\n",
-               props.deviceID,
-               props.deviceName,
-               props.deviceType,
-               features.geometryShader);
+        printf("error creating surface %d \n", engine->surface_info.status);
+        return VULKAN_SURFACE_FAILED;
     }
 
-    // Clean up physical devices array
-    alloc->free(physical_devices, alloc->ctx);
-
     printf("Vulkan instance created...\n");
+
+    alloc->free(extensions, alloc->ctx);  // Free immediately after use
     return INIT_OK;
 }
 
 ZERUS_CORE_DEF
-zerus_engine_state_t zerus_engine_init(allocator*      alloc,
-                                       string_array_t* extension_data)
+zerus_engine_state_t zerus_engine_init(allocator* alloc)
 {
     zerus_engine_state_t state = { .initialized = true };
 
     // Initialize subsystems
     printf("Initializing rendessrer... \n");
-    state.err = _init_vulkan(alloc, &state, extension_data);
+    state.err = _init_vulkan(alloc, &state);
     if (state.err)
     {
         printf("error in vulkan init %d", state.err);
@@ -299,16 +282,32 @@ zerus_engine_state_t zerus_engine_init(allocator*      alloc,
     return state;
 }
 
-ZERUS_CORE_DEF void zerus_engine_update(zerus_engine_state_t*)
+ZERUS_CORE_DEF bool zerus_engine_update(zerus_engine_state_t* engine)
 {
-    // Update all engine subsystems
-    // This would typically include:
-    // - Input processing
-    // - Physics simulation
-    // - Audio processing
-    // - Rendering
+    surface_status_t status = update_surface(&engine->surface_info);
+    if (status == SURFACE_SHOULD_CLOSE)
+    {
+        return false;
+    }
 
-    // Placeholder for now
+    return true;
+}
+
+ZERUS_CORE_DEF void zerus_engine_start(zerus_engine_state_t* engine)
+{
+    if (!engine->initialized)
+    {
+        return;
+    }
+
+    while (true)
+    {
+        if (!zerus_engine_update(engine))
+        {
+            zerus_engine_shutdown(engine);
+            return;
+        }
+    }
 }
 
 ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine)
@@ -319,6 +318,11 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine)
     {
         destroy_debug_utils_messenger(engine->instance,
                                       engine->debug_messenger);
+
+        destroy_surface(&engine->surface_info);
+
+        // maybe should be in a function like free_device_info
+        vkDestroyDevice(engine->device_info.device, nullptr);
 
         vkDestroyInstance(engine->instance, nullptr);
 

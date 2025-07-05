@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#endif  // PRELUDE_H
-
 typedef struct
 {
     void* (*malloc)(ptrdiff_t, void* ctx);
@@ -183,15 +181,17 @@ list_t* make_list(allocator* alloc, size_t len)
     // we dont have to re-allocate right away
     size_t buffer = 2;
 
-    size_t  size     = sizeof(list_t) + len * sizeof(list_t) * buffer;
+    size_t  size     = sizeof(list_t) + len * sizeof(void*) * buffer;
     list_t* new_list = alloc->malloc(size, alloc->ctx);
     if (!new_list)
     {
         return nullptr;
     }
 
-    new_list->len = len;
+    new_list->len = 0;
     new_list->cap = len * 2;
 
     return new_list;
 }
+
+#endif  // PRELUDE_H
