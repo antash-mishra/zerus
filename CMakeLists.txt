@@ -80,6 +80,7 @@ set(SOURCES
         include/engine/prelude.h
         include/engine/device.h
         include/engine/surface.h
+        include/engine/shaders.h
 )
 
 # Executable
@@ -93,10 +94,15 @@ find_package(glfw3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CGLM REQUIRED cglm)
 
+# Find shaderc for shader compilation
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SHADERC REQUIRED shaderc)
+
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
         glfw
         ${CGLM_LIBRARIES}
+        ${SHADERC_LIBRARIES}
         vulkan
         m  # Math library
 )
@@ -104,6 +110,10 @@ target_link_libraries(${PROJECT_NAME}
 # Include cglm headers
 target_include_directories(${PROJECT_NAME} PRIVATE ${CGLM_INCLUDE_DIRS})
 target_compile_options(${PROJECT_NAME} PRIVATE ${CGLM_CFLAGS_OTHER})
+
+# Include shaderc headers
+target_include_directories(${PROJECT_NAME} PRIVATE ${SHADERC_INCLUDE_DIRS})
+target_compile_options(${PROJECT_NAME} PRIVATE ${SHADERC_CFLAGS_OTHER})
 
 # Install target
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

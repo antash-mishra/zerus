@@ -175,22 +175,23 @@ void renderer_draw(void) { /* implementation */ }
 ### Required Libraries
 - GLFW3 (Graphics Library Framework) - window management and input
 - GLM (OpenGL Mathematics) - header-only math library for graphics
+- libshaderc - shader compilation library for GLSL to SPIR-V
 - pkg-config (for dependency management)
 
 ### Installation (Ubuntu/Debian)
 ```bash
 sudo apt update
-sudo apt install libglfw3-dev libglm-dev pkg-config
+sudo apt install libglfw3-dev libglm-dev libshaderc-dev pkg-config
 ```
 
 ### Installation (macOS)
 ```bash
-brew install glfw glm pkg-config
+brew install glfw glm shaderc pkg-config
 ```
 
 ### Installation (Arch Linux)
 ```bash
-sudo pacman -S glfw glm pkg-config
+sudo pacman -S glfw glm shaderc pkg-config
 ```
 
 ### Recommended VS Code Extensions

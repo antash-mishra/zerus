@@ -54,7 +54,7 @@ typedef struct
     VkSwapchainKHR swapchain;
 
     VkFormat   image_format;
-    VkExtent2D swapchain_extent;
+    VkExtent2D extent;
 
     uint32_t     image_count;
     VkImage*     images;
@@ -246,8 +246,8 @@ surface_info_t create_surface(allocator*    alloc,
             device_info.device, &view_info, nullptr, &surface_info.views[i]);
     }
 
-    surface_info.image_format     = choosen_surface_format.format;
-    surface_info.swapchain_extent = (VkExtent2D) { width, height };
+    surface_info.image_format = choosen_surface_format.format;
+    surface_info.extent       = (VkExtent2D) { width, height };
 
     return surface_info;
 }
