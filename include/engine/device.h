@@ -75,10 +75,11 @@ void _print_queue_flags(VkQueueFlagBits flags)
 
 typedef struct
 {
-    device_error_t error;
-    VkDevice       device;
-    VkQueue        graphics_queue;
-    VkQueue        compute_queue;
+    device_error_t   error;
+    VkPhysicalDevice physical_device;
+    VkDevice         device;
+    VkQueue          graphics_queue;
+    VkQueue          compute_queue;
 } device_info_t;
 
 device_info_t pick_device(allocator* alloc, VkInstance instance)
@@ -112,6 +113,8 @@ device_info_t pick_device(allocator* alloc, VkInstance instance)
     }
 
     // we found a device
+    device_info.physical_device = choosen_device;
+
     // now lets look for a queue where we will submit the commands
     uint32_t queue_family_count;
     vkGetPhysicalDeviceQueueFamilyProperties(

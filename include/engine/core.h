@@ -64,6 +64,7 @@ typedef struct zerus_engine_state_t
 {
     bool           initialized;
     engine_error_t err;
+    allocator*     alloc;
 
     VkInstance               instance;
     VkDebugUtilsMessengerEXT debug_messenger;
@@ -252,7 +253,8 @@ engine_error_t _init_vulkan(allocator* alloc, zerus_engine_state_t* engine)
         return VULKAN_INSTANCE_FAILED;
     }
 
-    engine->surface_info = create_surface(engine->instance);
+    engine->surface_info
+        = create_surface(alloc, engine->instance, engine->device_info);
     if (engine->surface_info.status)
     {
         printf("error creating surface %d \n", engine->surface_info.status);
@@ -268,7 +270,7 @@ engine_error_t _init_vulkan(allocator* alloc, zerus_engine_state_t* engine)
 ZERUS_CORE_DEF
 zerus_engine_state_t zerus_engine_init(allocator* alloc)
 {
-    zerus_engine_state_t state = { .initialized = true };
+    zerus_engine_state_t state = { .initialized = true, .alloc = alloc };
 
     // Initialize subsystems
     printf("Initializing rendessrer... \n");
@@ -319,7 +321,10 @@ ZERUS_CORE_DEF void zerus_engine_shutdown(zerus_engine_state_t* engine)
         destroy_debug_utils_messenger(engine->instance,
                                       engine->debug_messenger);
 
-        destroy_surface(&engine->surface_info);
+        destroy_surface(engine->alloc,
+                        engine->instance,
+                        engine->device_info,
+                        &engine->surface_info);
 
         // maybe should be in a function like free_device_info
         vkDestroyDevice(engine->device_info.device, nullptr);

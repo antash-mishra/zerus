@@ -194,4 +194,10 @@ list_t* make_list(allocator* alloc, size_t len)
     return new_list;
 }
 
+int clamp(int d, int min, int max)
+{
+    const int t = d < min ? min : d;
+    return t > max ? max : t;
+}
+
 #endif  // PRELUDE_H
