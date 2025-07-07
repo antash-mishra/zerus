@@ -76,7 +76,7 @@ include_directories(
 
 # Source files (header-only engine, only main.c needed)
 set(SOURCES
-        "src/main.c"
+        "src/test.c"
         include/engine/prelude.h
         include/engine/device.h
         include/engine/surface.h
