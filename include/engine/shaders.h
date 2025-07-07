@@ -92,26 +92,17 @@ void glsl_to_spirv(allocator* alloc, const char* glsl_path, const char* spirv_pa
     shaderc_compiler_t compiler = shaderc_compiler_initialize();
     shaderc_compile_options_t compile_options = shaderc_compile_options_initialize();
     shaderc_shader_kind kind;
-    if (type == VERTEX_SHADER)
-    {
-        kind = shaderc_glsl_vertex_shader;
-    }
-    else if (type == FRAGMENT_SHADER)
-    {
-        kind = shaderc_glsl_fragment_shader;
-    }
-    else if (type == GEOMETRY_SHADER)
-    {
-        kind = shaderc_glsl_geometry_shader;
-    }
-    else if (type == COMPUTE_SHADER)
-    {
-        kind = shaderc_glsl_compute_shader;
-    }
-    else
-    {
-        fprintf(stderr, "Invalid shader type: %d\n", type);
-        return;
+    switch (type) {
+        case VERTEX_SHADER:   kind = shaderc_glsl_vertex_shader;   break;
+        case FRAGMENT_SHADER: kind = shaderc_glsl_fragment_shader; break;
+        case GEOMETRY_SHADER: kind = shaderc_glsl_geometry_shader; break;
+        case COMPUTE_SHADER:  kind = shaderc_glsl_compute_shader;  break;
+        default:
+            fprintf(stderr, "Invalid shader type: %d\n", type);
+            // Must release the resources we've already acquired before returning.
+            shaderc_compile_options_release(compile_options);
+            shaderc_compiler_release(compiler);
+            return;
     }
 
     shaderc_compilation_result_t compile_result = shaderc_compile_into_spv(
