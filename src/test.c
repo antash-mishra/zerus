@@ -2,6 +2,7 @@
 #include "engine/shaders.h"
 #include <stdlib.h> // For malloc/free
 #include <stdio.h>
+#include <stdbool.h>
 
 // Standard library allocator wrappers
 static void* std_malloc(ptrdiff_t size, void* ctx)
@@ -16,6 +17,18 @@ static void std_free(void* ptr, void* ctx)
     free(ptr);
 }
 
+// Helper to check if a file exists and is not empty
+bool file_exists(const char* path) {
+    FILE* file = fopen(path, "rb");
+    if (!file) {
+        return false;
+    }
+    fseek(file, 0, SEEK_END);
+    bool is_not_empty = ftell(file) > 0;
+    fclose(file);
+    return is_not_empty;
+}
+
 int main()
 {
     allocator std_alloc = {
@@ -25,30 +38,30 @@ int main()
     };
 
     // Paths must be relative to the build directory where the executable is run.
-    const char* vert_path = "../resources/shaders/shaderfs.frag";
-    const char* frag_path = "../resources/shaders/shadervs.vert";
+    const char* vert_path = "../resources/shaders/shadervs.vert";
+    const char* frag_path = "../resources/shaders/shaderfs.frag";
 
-    const char* vert_spv_path = "../resources/shaders/vert.spv";
-    const char* frag_spv_path = "../resources/shaders/frag.spv";
+    const char* vert_spv_path = "../resources/shaders/shadervs.spv";
+    const char* frag_spv_path = "../resources/shaders/shaderfs.spv";
 
-    // --- Compile and Load Vertex Shader ---
-    printf("--- Processing Vertex Shader ---\n");
-    string_array_t* vert_shader = glsl_to_spirv(&std_alloc, vert_path, vert_spv_path);
-    if (vert_shader) {
-        printf("Loaded %zu bytes from %s\n", vert_shader->data[0].len, vert_spv_path);
-        string_array_free(&std_alloc, vert_shader);
+    // --- Compile Vertex Shader ---
+    printf("--- Compiling Vertex Shader ---\n");
+    glsl_to_spirv(&std_alloc, vert_path, vert_spv_path, VERTEX_SHADER);
+
+    if (file_exists(vert_spv_path)) {
+        printf("SUCCESS: '%s' was created.\n", vert_spv_path);
     } else {
-        printf("Failed to process vertex shader.\n");
+        printf("FAILURE: '%s' was not created.\n", vert_spv_path);
     }
 
-    // --- Compile and Load Fragment Shader ---
-    printf("\n--- Processing Fragment Shader ---\n");
-    string_array_t* frag_shader = glsl_to_spirv(&std_alloc, frag_path, frag_spv_path);
-    if (frag_shader) {
-        printf("Loaded %zu bytes from %s\n", frag_shader->data[0].len, frag_spv_path);
-        string_array_free(&std_alloc, frag_shader);
+    // --- Compile Fragment Shader ---
+    printf("\n--- Compiling Fragment Shader ---\n");
+    glsl_to_spirv(&std_alloc, frag_path, frag_spv_path, FRAGMENT_SHADER);
+
+    if (file_exists(frag_spv_path)) {
+        printf("SUCCESS: '%s' was created.\n", frag_spv_path);
     } else {
-        printf("Failed to process fragment shader.\n");
+        printf("FAILURE: '%s' was not created.\n", frag_spv_path);
     }
 
     return 0;
