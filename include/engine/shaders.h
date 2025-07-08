@@ -21,57 +21,7 @@ typedef enum shader_type
     COMPUTE_SHADER
 } shader_type;
 
-// This function reads an entire file from provided path into a *single* `string_t`
-static inline string_t* read_shader_file(allocator* alloc, const char* path)
-{
-    FILE *file = fopen(path, "rb");
-    if (!file) {
 
-        return NULL;
-    }
-
-    // Seek to the end of the file to determine its size.
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    if (file_size < 0) {
-        fclose(file);
-        return NULL;
-    }
-
-    // Allocate one contiguous memory block for the header, the string_t view,
-    // the file content, and a null terminator. This makes cleanup trivial.
-    size_t total_size = sizeof(string_t) + file_size + 1;
-    string_t* code = alloc->malloc(total_size, alloc->ctx);
-    if (!code) {
-        fclose(file);
-        return NULL;
-    }
-
-    code->len = file_size;
-
-    // The character buffer starts immediately after the string_t element in our single block.
-    char* buffer = (char*)(code + 1);
-
-    // The final string_t will still hold a const pointer, providing read-only access.
-    code->chars = buffer;
-
-    // Read the entire file into our allocated buffer.
-    size_t bytes_read = fread(buffer, 1, file_size, file);
-    fclose(file);
-
-    if (bytes_read != (size_t)file_size) {
-        // If we couldn't read the whole file, something is wrong. Free the memory and fail.
-        alloc->free(code, alloc->ctx);
-        return NULL;
-    }
-
-    // Manually add the null terminator at the end of the content.
-    buffer[file_size] = '\0';
-
-    return code;
-}
 
 // This function releases the resources of a compiled shader result.
 void release_compiled_shader_result(shaderc_compilation_result_t compile_result, shaderc_compile_options_t compile_options, shaderc_compiler_t compiler) {
@@ -83,12 +33,10 @@ void release_compiled_shader_result(shaderc_compilation_result_t compile_result,
 // This function compiles a GLSL shader to SPIR-V by running an external script.
 void glsl_to_spirv(allocator* alloc, const char* glsl_path, const char* spirv_path, shader_type type)
 {
-
     // read glsl file
-    string_t* glsl_code = read_shader_file(alloc, glsl_path);
+    string_t* glsl_code = read_file(alloc, glsl_path);
 
     // compile shader
-
     shaderc_compiler_t compiler = shaderc_compiler_initialize();
     shaderc_compile_options_t compile_options = shaderc_compile_options_initialize();
     shaderc_shader_kind kind;
@@ -104,7 +52,6 @@ void glsl_to_spirv(allocator* alloc, const char* glsl_path, const char* spirv_pa
             shaderc_compiler_release(compiler);
             return;
     }
-
     shaderc_compilation_result_t compile_result = shaderc_compile_into_spv(
         compiler,
         glsl_code->chars,
@@ -128,20 +75,17 @@ void glsl_to_spirv(allocator* alloc, const char* glsl_path, const char* spirv_pa
         return;
     }
 
+    // spirv returned shader with size
     size_t spirv_size = shaderc_result_get_length(compile_result);
     const char* spirv_bytes = shaderc_result_get_bytes(compile_result);
 
     // write to file
-    FILE *fptr = fopen(spirv_path, "wb");
-    if (!fptr)
-    {
-        fprintf(stderr, "Error opening file %s: %s\n", spirv_path, strerror(errno));
-        release_compiled_shader_result(compile_result, compile_options, compiler);
-        return;
+    bool success = write_file(spirv_path, spirv_bytes, spirv_size);
+    if (!success) {
+        fprintf(stderr, "Error writing SPIR-V file %s\n", spirv_path);
     }
-    fwrite(spirv_bytes, 1, spirv_size, fptr);
-    fclose(fptr);
 
+    // release memory of shader result
     release_compiled_shader_result(compile_result, compile_options, compiler);
 }
 

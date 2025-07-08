@@ -17,18 +17,6 @@ static void std_free(void* ptr, void* ctx)
     free(ptr);
 }
 
-// Helper to check if a file exists and is not empty
-bool file_exists(const char* path) {
-    FILE* file = fopen(path, "rb");
-    if (!file) {
-        return false;
-    }
-    fseek(file, 0, SEEK_END);
-    bool is_not_empty = ftell(file) > 0;
-    fclose(file);
-    return is_not_empty;
-}
-
 int main()
 {
     allocator std_alloc = {
