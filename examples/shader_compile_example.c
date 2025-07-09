@@ -1,3 +1,7 @@
+// Example: Compile GLSL shaders to SPIR-V using the Zerus engine utilities.
+// This was previously src/test.c. Kept identical logic, only moved to the
+// examples/ folder and given a descriptive name.
+
 #include "engine/prelude.h"
 #include "engine/shaders.h"
 #include <stdlib.h> // For malloc/free
@@ -17,12 +21,12 @@ static void std_free(void* ptr, void* ctx)
     free(ptr);
 }
 
-int main()
+int main(void)
 {
     allocator std_alloc = {
         .malloc = std_malloc,
-        .free = std_free,
-        .ctx = NULL
+        .free   = std_free,
+        .ctx    = NULL
     };
 
     // Paths must be relative to the build directory where the executable is run.
@@ -53,4 +57,4 @@ int main()
     }
 
     return 0;
-}
+} 

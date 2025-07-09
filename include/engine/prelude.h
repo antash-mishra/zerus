@@ -246,9 +246,6 @@ static string_t* read_file(allocator* alloc, const char* path)
         return NULL;
     }
 
-    // Manually add the null terminator at the end of the content.
-    buffer[file_size] = '\0';
-
     return data;
 }
 
