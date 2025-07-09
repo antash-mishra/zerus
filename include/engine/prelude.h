@@ -200,4 +200,80 @@ int clamp(int d, int min, int max)
     return t > max ? max : t;
 }
 
+// Read file data to string_t
+static string_t* read_file(allocator* alloc, const char* path)
+{
+    FILE *file = fopen(path, "rb");
+    if (!file)
+    {
+        return NULL;
+    }
+
+    // Seek to the end of the file to determine its size.
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    if (file_size < 0) {
+        fclose(file);
+        return NULL;
+    }
+
+    // Allocate one contiguous memory block for the header, the string_t view,
+    // the file content, and a null terminator. This makes cleanup trivial.
+    size_t total_size = sizeof(string_t) + file_size + 1;
+    string_t* data = alloc->malloc(total_size, alloc->ctx);
+    if (!data) {
+        fclose(file);
+        return NULL;
+    }
+
+    data->len = file_size;
+
+    // The character buffer starts immediately after the string_t element in our single block.
+    char* buffer = (char*)(data + 1);
+
+    // The final string_t will still hold a const pointer, providing read-only access.
+    data->chars = buffer;
+
+    // Read the entire file into our allocated buffer.
+    size_t bytes_read = fread(buffer, 1, file_size, file);
+    fclose(file);
+
+    if (bytes_read != (size_t)file_size) {
+        // If we couldn't read the whole file, something is wrong. Free the memory and fail.
+        alloc->free(data, alloc->ctx);
+        return NULL;
+    }
+
+    return data;
+}
+
+// write to file
+static bool write_file(const char* path, const char* data, size_t size)
+{
+    FILE* file = fopen(path, "wb");
+    if (!file)
+    {
+        return false;
+    }
+
+    size_t bytes_written = fwrite(data, 1, size, file);
+    fclose(file);
+
+    return bytes_written == size;
+}
+
+// Helper to check if a file exists and is not empty
+static bool file_exists(const char* path) {
+    FILE* file = fopen(path, "rb");
+    if (!file) {
+        return false;
+    }
+    fseek(file, 0, SEEK_END);
+    const bool is_not_empty = ftell(file) > 0;
+    fclose(file);
+    return is_not_empty;
+}
+
 #endif  // PRELUDE_H
